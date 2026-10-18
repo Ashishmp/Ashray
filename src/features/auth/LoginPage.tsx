@@ -24,7 +24,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 
 export const LoginPage: React.FC = () => {
-  const { login, quickLogin, register, isAuthenticated, registeredOwners } = useAuth();
+  const { login, quickLogin, loginAsSuperAdmin, loginAsTenant, register, isAuthenticated, registeredOwners, registeredTenants, superAdmin } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -69,14 +69,14 @@ export const LoginPage: React.FC = () => {
     setIsSubmitting(false);
 
     if (result.success) {
-      showToast('Welcome Back', 'Logged in to StayNest Owner Dashboard.', 'success');
+      showToast('Welcome Back', 'Logged into StayNest Portal.', 'success');
       navigate('/', { replace: true });
     } else {
       setLoginError(result.error || 'Failed to sign in. Please verify your credentials.');
     }
   };
 
-  const handleQuickSelect = (ownerId: string, ownerName: string, businessName: string) => {
+  const handleQuickSelectOwner = (ownerId: string, ownerName: string, businessName: string) => {
     const result = quickLogin(ownerId);
     if (result.success) {
       showToast('Logged In Successfully', `Managing ${businessName} as ${ownerName}.`, 'success');
@@ -85,6 +85,23 @@ export const LoginPage: React.FC = () => {
       showToast('Login Failed', result.error || 'Could not log in as owner.', 'error');
     }
   };
+
+  const handleQuickSelectSuperAdmin = () => {
+    loginAsSuperAdmin();
+    showToast('Platform Console Active', 'Logged in as Platform Super Administrator.', 'success');
+    navigate('/admin', { replace: true });
+  };
+
+  const handleQuickSelectTenant = (tenantId: string, tenantName: string) => {
+    const result = loginAsTenant(tenantId);
+    if (result.success) {
+      showToast('Resident Portal Active', `Welcome, ${tenantName}!`, 'success');
+      navigate('/tenant', { replace: true });
+    } else {
+      showToast('Login Failed', result.error || 'Could not log in as tenant.', 'error');
+    }
+  };
+
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,19 +270,89 @@ export const LoginPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Tab 1: Quick Select Owner */}
+        {/* Tab 1: Quick Select Persona */}
         {activeTab === 'quick' && (
           <div style={{ padding: '24px' }}>
             <div style={{ marginBottom: '16px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 4px 0' }}>
-                Select an Owner Account
+                Select a Persona to Experience StayNest
               </h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>
-                Choose an owner below to immediately test login, data isolation, and management workflows:
+                Choose any persona below to immediately test data isolation, tenant portals, and management workflows:
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Persona 1: Platform Super Admin */}
+              <div
+                onClick={handleQuickSelectSuperAdmin}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '14px 16px',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '2px solid rgba(99, 102, 241, 0.4)',
+                  backgroundColor: 'var(--primary-50)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'var(--primary-600)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--primary-600)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 800,
+                      fontSize: '18px',
+                      flexShrink: 0
+                    }}
+                  >
+                    👑
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '14.5px', color: 'var(--slate-900)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {superAdmin.name}
+                      <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--primary-600)', color: '#ffffff', textTransform: 'uppercase' }}>
+                        Super Admin
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12.5px', color: 'var(--primary-700)', fontWeight: 600 }}>
+                      Multi-Tenant Platform Administrator
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--slate-500)', marginTop: '2px' }}>
+                      Onboard PG businesses, platform GMV analytics, audit compliance
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary-700)', fontWeight: 700, fontSize: '12.5px' }}>
+                  <span>Launch</span>
+                  <ArrowRight size={15} />
+                </div>
+              </div>
+
+              {/* Section Header: PG Owners */}
+              <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--slate-400)', letterSpacing: '0.05em', marginTop: '4px' }}>
+                PG Business Owners & Landlords
+              </div>
+
               {registeredOwners.map(owner => {
                 const properties = storageService.getProperties(owner.id);
                 const tenants = storageService.getTenants(owner.id);
@@ -274,12 +361,12 @@ export const LoginPage: React.FC = () => {
                 return (
                   <div
                     key={owner.id}
-                    onClick={() => handleQuickSelect(owner.id, owner.name, owner.businessName)}
+                    onClick={() => handleQuickSelectOwner(owner.id, owner.name, owner.businessName)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '16px',
+                      padding: '14px 16px',
                       borderRadius: 'var(--radius-lg)',
                       border: '1px solid var(--border-color)',
                       backgroundColor: 'var(--bg-surface)',
@@ -301,16 +388,16 @@ export const LoginPage: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                       <div
                         style={{
-                          width: '46px',
-                          height: '46px',
+                          width: '44px',
+                          height: '44px',
                           borderRadius: '12px',
-                          backgroundColor: 'var(--primary-100)',
-                          color: 'var(--primary-700)',
+                          backgroundColor: 'var(--slate-100)',
+                          color: 'var(--slate-800)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           fontWeight: 800,
-                          fontSize: '15px',
+                          fontSize: '14px',
                           flexShrink: 0
                         }}
                       >
@@ -318,25 +405,160 @@ export const LoginPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>
+                        <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--text-primary)' }}>
                           {owner.name}
                         </div>
-                        <div style={{ fontSize: '13px', color: 'var(--primary-600)', fontWeight: 600, marginTop: '2px' }}>
+                        <div style={{ fontSize: '12.5px', color: 'var(--primary-600)', fontWeight: 600 }}>
                           {owner.businessName}
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
                           {properties.length} {properties.length === 1 ? 'Property' : 'Properties'} • {rooms.length} Rooms • {tenants.length} Tenants
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary-600)', fontWeight: 600, fontSize: '13px' }}>
-                      <span>Login</span>
-                      <ArrowRight size={16} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary-600)', fontWeight: 600, fontSize: '12.5px' }}>
+                      <span>Manage</span>
+                      <ArrowRight size={15} />
                     </div>
                   </div>
                 );
               })}
+
+              {/* Section Header: Resident Tenants */}
+              <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--slate-400)', letterSpacing: '0.05em', marginTop: '4px' }}>
+                Resident Tenants (Self-Service Portals)
+              </div>
+
+              {/* Tenant 1: Rohan Verma */}
+              <div
+                onClick={() => handleQuickSelectTenant('tnt_02', 'Rohan Verma')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '14px 16px',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--success-200)',
+                  backgroundColor: 'var(--success-50)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'var(--success-500)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'var(--success-200)';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--success-100)',
+                      color: 'var(--success-700)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 800,
+                      fontSize: '14px',
+                      flexShrink: 0
+                    }}
+                  >
+                    RV
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--slate-900)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      Rohan Verma
+                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', backgroundColor: 'var(--success-600)', color: '#ffffff' }}>
+                        Tenant
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12.5px', color: 'var(--success-800)', fontWeight: 600 }}>
+                      StayNest Elite (Room 102 - Bed A)
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--slate-500)', marginTop: '2px' }}>
+                      Online UPI payments, KYC document center, Wi-Fi credentials
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--success-700)', fontWeight: 700, fontSize: '12.5px' }}>
+                  <span>Enter</span>
+                  <ArrowRight size={15} />
+                </div>
+              </div>
+
+              {/* Tenant 2: Karthik Subramanian (Overdue payment test) */}
+              <div
+                onClick={() => handleQuickSelectTenant('tnt_04', 'Karthik Subramanian')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '14px 16px',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--warning-200)',
+                  backgroundColor: 'var(--warning-50)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'var(--warning-500)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'var(--warning-200)';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--warning-100)',
+                      color: 'var(--warning-800)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 800,
+                      fontSize: '14px',
+                      flexShrink: 0
+                    }}
+                  >
+                    KS
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--slate-900)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      Karthik Subramanian
+                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', backgroundColor: 'var(--danger-600)', color: '#ffffff' }}>
+                        ₹14,000 Due
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12.5px', color: 'var(--warning-800)', fontWeight: 600 }}>
+                      StayNest Elite (Room 103 - Bed A)
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--slate-500)', marginTop: '2px' }}>
+                      Ready to test instant online rent payment & receipt generation
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--warning-800)', fontWeight: 700, fontSize: '12.5px' }}>
+                  <span>Pay Due</span>
+                  <ArrowRight size={15} />
+                </div>
+              </div>
             </div>
 
             <div

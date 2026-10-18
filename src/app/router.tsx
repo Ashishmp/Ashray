@@ -13,6 +13,23 @@ import { MaintenancePage } from '../features/maintenance/MaintenancePage';
 import { StaffPage } from '../features/staff/StaffPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
+import { PlatformAdminPage } from '../features/admin/PlatformAdminPage';
+import { TenantOverviewPage } from '../features/tenant/TenantOverviewPage';
+import { TenantProfilePage } from '../features/tenant/TenantProfilePage';
+import { TenantPaymentsPage } from '../features/tenant/TenantPaymentsPage';
+import { TenantComplaintsPage } from '../features/tenant/TenantComplaintsPage';
+import { useAuth } from '../context/AuthContext';
+
+const RoleBasedIndex: React.FC = () => {
+  const { currentRole } = useAuth();
+  if (currentRole === 'superadmin') {
+    return <PlatformAdminPage />;
+  }
+  if (currentRole === 'tenant') {
+    return <TenantOverviewPage />;
+  }
+  return <OverviewPage />;
+};
 
 export const AppRouter: React.FC = () => {
   return (
@@ -26,7 +43,9 @@ export const AppRouter: React.FC = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<OverviewPage />} />
+        <Route index element={<RoleBasedIndex />} />
+
+        {/* PG Owner Routes */}
         <Route path="properties" element={<PropertiesPage />} />
         <Route path="rooms" element={<RoomsPage />} />
         <Route path="tenants" element={<TenantsPage />} />
@@ -36,8 +55,19 @@ export const AppRouter: React.FC = () => {
         <Route path="staff" element={<StaffPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+
+        {/* Platform Super Admin */}
+        <Route path="admin" element={<PlatformAdminPage />} />
+
+        {/* Resident Tenant Self-Service Portal */}
+        <Route path="tenant" element={<TenantOverviewPage />} />
+        <Route path="tenant/profile" element={<TenantProfilePage />} />
+        <Route path="tenant/payments" element={<TenantPaymentsPage />} />
+        <Route path="tenant/complaints" element={<TenantComplaintsPage />} />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );
 };
+

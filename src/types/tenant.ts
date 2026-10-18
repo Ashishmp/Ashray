@@ -9,6 +9,22 @@ export interface EmergencyContact {
   phone: string;
 }
 
+export type DocumentType = 'aadhaar' | 'pan' | 'college_work_id' | 'police_verification';
+export type DocumentStatus = 'verified' | 'pending' | 'rejected' | 'not_uploaded';
+
+export interface TenantDocument {
+  id: string;
+  type: DocumentType;
+  title: string;
+  fileName: string;
+  fileSize: string;
+  uploadedAt: string;
+  status: DocumentStatus;
+  verificationNotes?: string;
+  documentNumber?: string;
+  previewUrl?: string;
+}
+
 export interface Tenant extends BaseEntity {
   name: string;
   phone: string;
@@ -35,4 +51,9 @@ export interface Tenant extends BaseEntity {
   idProofNumber?: string;
   workplaceOrCollege?: string;
   notes?: string;
+  bloodGroup?: string;
+  foodPreference?: 'Veg' | 'Non-Veg' | 'Eggetarian' | 'Jain';
+  permanentAddress?: string;
+  documents?: TenantDocument[];
 }
+

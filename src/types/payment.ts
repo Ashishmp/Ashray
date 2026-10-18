@@ -1,6 +1,6 @@
 import { BaseEntity } from './common';
 
-export type PaymentMethod = 'UPI' | 'Bank Transfer' | 'Cash' | 'Cheque' | 'Other';
+export type PaymentMethod = 'UPI' | 'Card' | 'Bank Transfer' | 'Cash' | 'Cheque' | 'Other';
 export type PaymentStatus = 'Paid' | 'Pending' | 'Overdue';
 
 export interface PaymentRecord extends BaseEntity {

@@ -31,7 +31,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile }) => {
   const { payments, complaints, ownerProfile } = useApp();
-  const { logout } = useAuth();
+  const { currentRole, currentTenant, superAdmin, switchRole, logout } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -43,7 +43,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
   const overdueCount = payments.filter(p => p.status === 'Overdue').length;
   const openComplaintsCount = complaints.filter(c => c.status === 'Open' || c.status === 'In Progress').length;
 
-  const navItems = [
+  interface SidebarNavItem {
+    to: string;
+    label: string;
+    icon: any;
+    badge?: string;
+    badgeType?: 'alert' | 'info';
+  }
+
+  // Role-based Nav Items
+  const ownerNavItems: SidebarNavItem[] = [
     { to: '/', label: 'Overview', icon: LayoutDashboard },
     { to: '/properties', label: 'Properties', icon: Building2 },
     { to: '/rooms', label: 'Rooms & Beds', icon: BedDouble },
@@ -68,18 +77,39 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
     { to: '/settings', label: 'Settings', icon: Settings }
   ];
 
+  const superAdminNavItems: SidebarNavItem[] = [
+    { to: '/admin', label: 'Platform Overview', icon: LayoutDashboard },
+    { to: '/admin', label: 'Onboarded PGs', icon: Building2 },
+    { to: '/reports', label: 'System Analytics', icon: BarChart3 }
+  ];
+
+  const tenantNavItems: SidebarNavItem[] = [
+    { to: '/tenant', label: 'My Stay & Room', icon: LayoutDashboard },
+    { to: '/tenant/profile', label: 'Profile & KYC Upload', icon: Users },
+    { to: '/tenant/payments', label: 'Rent & Receipts', icon: CreditCard, badge: currentTenant?.monthlyRent ? 'Online Pay' : undefined, badgeType: 'info' },
+    { to: '/tenant/complaints', label: 'Service Requests', icon: Wrench }
+  ];
+
+  const activeNavItems: SidebarNavItem[] = currentRole === 'superadmin' ? superAdminNavItems : currentRole === 'tenant' ? tenantNavItems : ownerNavItems;
+  const brandTitle = currentRole === 'superadmin' ? 'StayNest' : currentRole === 'tenant' ? 'StayNest' : 'StayNest';
+  const brandBadge = currentRole === 'superadmin' ? 'Super Admin' : currentRole === 'tenant' ? 'Resident' : 'Owner';
+  const brandBadgeColor = currentRole === 'superadmin' ? 'rgba(99, 102, 241, 0.3)' : currentRole === 'tenant' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.1)';
+  const brandBadgeTextColor = currentRole === 'superadmin' ? '#a5b4fc' : currentRole === 'tenant' ? '#6ee7b7' : 'var(--primary-300)';
+
   return (
     <>
       <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
         {/* Sidebar Header / Brand */}
         <div className="sidebar-header">
-          <NavLink to="/" className="brand-link" onClick={onCloseMobile}>
+          <NavLink to={currentRole === 'superadmin' ? '/admin' : currentRole === 'tenant' ? '/tenant' : '/'} className="brand-link" onClick={onCloseMobile}>
             <div className="brand-icon-wrapper">
               <Building size={20} />
             </div>
             <span>
-              StayNest
-              <span className="brand-badge">Owner</span>
+              {brandTitle}
+              <span className="brand-badge" style={{ backgroundColor: brandBadgeColor, color: brandBadgeTextColor }}>
+                {brandBadge}
+              </span>
             </span>
           </NavLink>
           {isMobileOpen && (
@@ -95,16 +125,79 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
           )}
         </div>
 
+        {/* Live Role Switcher */}
+        <div style={{ padding: '10px 14px 4px 14px' }}>
+          <div style={{ fontSize: '10.5px', textTransform: 'uppercase', color: 'var(--slate-400)', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '6px' }}>
+            Active Portal Persona
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', backgroundColor: 'var(--slate-800)', padding: '3px', borderRadius: 'var(--radius-sm)' }}>
+            <button
+              type="button"
+              onClick={() => { switchRole('superadmin'); navigate('/admin'); }}
+              style={{
+                padding: '6px 2px',
+                borderRadius: '4px',
+                fontSize: '10.5px',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: currentRole === 'superadmin' ? 'var(--primary-600)' : 'transparent',
+                color: currentRole === 'superadmin' ? '#ffffff' : 'var(--slate-400)',
+                transition: 'all 150ms'
+              }}
+            >
+              Admin
+            </button>
+            <button
+              type="button"
+              onClick={() => { switchRole('owner'); navigate('/'); }}
+              style={{
+                padding: '6px 2px',
+                borderRadius: '4px',
+                fontSize: '10.5px',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: currentRole === 'owner' ? 'var(--primary-600)' : 'transparent',
+                color: currentRole === 'owner' ? '#ffffff' : 'var(--slate-400)',
+                transition: 'all 150ms'
+              }}
+            >
+              PG Owner
+            </button>
+            <button
+              type="button"
+              onClick={() => { switchRole('tenant', 'tnt_02'); navigate('/tenant'); }}
+              style={{
+                padding: '6px 2px',
+                borderRadius: '4px',
+                fontSize: '10.5px',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: currentRole === 'tenant' ? 'var(--success-600)' : 'transparent',
+                color: currentRole === 'tenant' ? '#ffffff' : 'var(--slate-400)',
+                transition: 'all 150ms'
+              }}
+            >
+              Tenant
+            </button>
+          </div>
+        </div>
+
         {/* Navigation Items */}
         <nav className="sidebar-nav">
-          <div className="nav-section-title">Main Operations</div>
-          {navItems.map(item => {
+          <div className="nav-section-title">
+            {currentRole === 'superadmin' ? 'Platform Governance' : currentRole === 'tenant' ? 'Resident Operations' : 'Main Operations'}
+          </div>
+          {activeNavItems.map(item => {
             const Icon = item.icon;
+            const isHome = item.to === '/' || item.to === '/admin' || item.to === '/tenant';
             return (
               <NavLink
-                key={item.to}
+                key={item.label}
                 to={item.to}
-                end={item.to === '/'}
+                end={isHome}
                 className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                 onClick={onCloseMobile}
               >
@@ -139,41 +232,59 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
           <div className="user-card" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div
               className="user-avatar"
-              title={`${ownerProfile.name} (${ownerProfile.businessName})`}
+              title={currentRole === 'superadmin' ? 'Super Admin' : currentRole === 'tenant' ? currentTenant?.name : `${ownerProfile.name} (${ownerProfile.businessName})`}
               style={{ cursor: 'pointer' }}
-              onClick={() => setShowSwitchOwnerModal(true)}
+              onClick={() => {
+                if (currentRole === 'owner') setShowSwitchOwnerModal(true);
+              }}
             >
-              {ownerProfile.name
-                .split(' ')
-                .map(n => n[0])
-                .join('')
-                .slice(0, 2)
-                .toUpperCase()}
+              {currentRole === 'superadmin'
+                ? 'SA'
+                : currentRole === 'tenant'
+                ? currentTenant?.name.slice(0, 2).toUpperCase() || 'TN'
+                : ownerProfile.name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()}
             </div>
             <div
               className="user-info"
-              style={{ cursor: 'pointer', flex: 1, minWidth: 0 }}
-              onClick={() => setShowSwitchOwnerModal(true)}
-              title="Click to switch owner account"
+              style={{ cursor: currentRole === 'owner' ? 'pointer' : 'default', flex: 1, minWidth: 0 }}
+              onClick={() => {
+                if (currentRole === 'owner') setShowSwitchOwnerModal(true);
+              }}
+              title={currentRole === 'owner' ? 'Click to switch owner account' : undefined}
             >
               <div className="user-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {ownerProfile.name}
+                {currentRole === 'superadmin'
+                  ? superAdmin.name
+                  : currentRole === 'tenant'
+                  ? currentTenant?.name || 'Rohan Verma'
+                  : ownerProfile.name}
               </div>
               <div className="user-role" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {ownerProfile.businessName}
+                {currentRole === 'superadmin'
+                  ? 'Platform Super Admin'
+                  : currentRole === 'tenant'
+                  ? `Room ${currentTenant?.roomNumber || '102'} (${currentTenant?.bedCode || 'Bed A'})`
+                  : ownerProfile.businessName}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '2px' }}>
-              <button
-                type="button"
-                className="btn-ghost"
-                style={{ padding: '6px', color: 'var(--slate-400)' }}
-                title="Switch Owner Account"
-                onClick={() => setShowSwitchOwnerModal(true)}
-                aria-label="Switch Owner Account"
-              >
-                <ArrowLeftRight size={15} />
-              </button>
+              {currentRole === 'owner' && (
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  style={{ padding: '6px', color: 'var(--slate-400)' }}
+                  title="Switch Owner Account"
+                  onClick={() => setShowSwitchOwnerModal(true)}
+                  aria-label="Switch Owner Account"
+                >
+                  <ArrowLeftRight size={15} />
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-ghost"

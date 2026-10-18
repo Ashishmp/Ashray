@@ -1,26 +1,40 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { storageService } from '../services/storageService';
-import { OwnerAccount, LoginCredentials, RegisterOwnerInput } from '../types/auth';
+import { storageService, SUPER_ADMIN_ACCOUNT } from '../services/storageService';
+import { OwnerAccount, LoginCredentials, RegisterOwnerInput, SuperAdminAccount, TenantAccount, UserRole } from '../types/auth';
 import { OwnerProfile } from '../types/common';
 
 interface AuthContextValue {
+  currentRole: UserRole;
   currentOwner: OwnerAccount | null;
+  currentTenant: TenantAccount | null;
+  superAdmin: SuperAdminAccount;
   isAuthenticated: boolean;
   registeredOwners: OwnerAccount[];
+  registeredTenants: TenantAccount[];
   login: (credentials: LoginCredentials) => { success: boolean; error?: string };
   quickLogin: (ownerId: string) => { success: boolean; error?: string };
+  loginAsSuperAdmin: () => void;
+  loginAsTenant: (tenantId: string) => { success: boolean; error?: string };
+  switchRole: (role: UserRole, targetId?: string) => void;
   logout: () => void;
   switchOwner: (ownerId: string) => { success: boolean; error?: string };
   register: (data: RegisterOwnerInput) => { success: boolean; error?: string };
   updateCurrentProfile: (updates: Partial<OwnerProfile>) => void;
   refreshOwners: () => void;
+  refreshTenant: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => storageService.getActiveRole());
+
   const [registeredOwners, setRegisteredOwners] = useState<OwnerAccount[]>(() =>
     storageService.getRegisteredOwners()
+  );
+
+  const [registeredTenants] = useState<TenantAccount[]>(() =>
+    storageService.getRegisteredTenants()
   );
 
   const [currentOwner, setCurrentOwner] = useState<OwnerAccount | null>(() => {
@@ -29,68 +43,127 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return storageService.getOwnerAccountById(activeId);
   });
 
+  const [currentTenant, setCurrentTenant] = useState<TenantAccount | null>(() => {
+    const activeTenantId = storageService.getActiveTenantId();
+    return storageService.getTenantAccountById(activeTenantId);
+  });
+
   const refreshOwners = useCallback(() => {
     const owners = storageService.getRegisteredOwners();
     setRegisteredOwners(owners);
   }, []);
 
+  const refreshTenant = useCallback(() => {
+    const activeTenantId = storageService.getActiveTenantId();
+    const t = storageService.getTenantAccountById(activeTenantId);
+    setCurrentTenant(t);
+  }, []);
+
+  const loginAsSuperAdmin = useCallback(() => {
+    storageService.setActiveRole('superadmin');
+    setCurrentRole('superadmin');
+  }, []);
+
+  const loginAsTenant = useCallback((tenantId: string): { success: boolean; error?: string } => {
+    const t = storageService.getTenantAccountById(tenantId);
+    if (!t) return { success: false, error: 'Tenant record not found.' };
+
+    storageService.setActiveRole('tenant');
+    storageService.setActiveTenantId(tenantId);
+    setCurrentTenant(t);
+    setCurrentRole('tenant');
+    return { success: true };
+  }, []);
+
+  const loginAsOwner = useCallback((ownerId: string): { success: boolean; error?: string } => {
+    const account = storageService.getOwnerAccountById(ownerId);
+    if (!account) return { success: false, error: 'Owner account not found.' };
+
+    storageService.setActiveRole('owner');
+    storageService.setActiveOwnerId(account.id);
+    setCurrentRole('owner');
+    setCurrentOwner(account);
+    refreshOwners();
+    return { success: true };
+  }, [refreshOwners]);
+
+  const switchRole = useCallback((role: UserRole, targetId?: string) => {
+    if (role === 'superadmin') {
+      loginAsSuperAdmin();
+    } else if (role === 'tenant') {
+      loginAsTenant(targetId || 'tnt_02');
+    } else {
+      loginAsOwner(targetId || currentOwner?.id || 'usr_owner_01');
+    }
+  }, [loginAsSuperAdmin, loginAsTenant, loginAsOwner, currentOwner]);
+
   const login = useCallback(
     ({ email, password }: LoginCredentials): { success: boolean; error?: string } => {
       const cleanEmail = email.trim().toLowerCase();
-      const account = storageService.getOwnerAccountByEmail(cleanEmail);
 
+      // Check Super Admin login
+      if (cleanEmail === SUPER_ADMIN_ACCOUNT.email.toLowerCase()) {
+        loginAsSuperAdmin();
+        return { success: true };
+      }
+
+      // Check Tenant login
+      const matchedTenant = registeredTenants.find(t => t.email.toLowerCase() === cleanEmail);
+      if (matchedTenant) {
+        return loginAsTenant(matchedTenant.id);
+      }
+
+      // Check Owner account
+      const account = storageService.getOwnerAccountByEmail(cleanEmail);
       if (!account) {
         return {
           success: false,
-          error: `No registered owner account found with email "${email}".`
+          error: `No registered account found with email "${email}".`
         };
       }
 
       if (password && account.password && account.password !== password) {
         return {
           success: false,
-          error: 'Invalid password. Please check your password or use quick sign-in.'
+          error: 'Invalid password. Please check your credentials or use quick sign-in.'
         };
       }
 
-      storageService.setActiveOwnerId(account.id);
-      setCurrentOwner(account);
-      refreshOwners();
-      return { success: true };
+      return loginAsOwner(account.id);
     },
-    [refreshOwners]
+    [loginAsSuperAdmin, loginAsTenant, loginAsOwner, registeredTenants]
   );
 
   const quickLogin = useCallback(
     (ownerId: string): { success: boolean; error?: string } => {
-      const account = storageService.getOwnerAccountById(ownerId);
-      if (!account) {
-        return { success: false, error: 'Owner account not found.' };
-      }
-      storageService.setActiveOwnerId(account.id);
-      setCurrentOwner(account);
-      refreshOwners();
-      return { success: true };
+      return loginAsOwner(ownerId);
     },
-    [refreshOwners]
+    [loginAsOwner]
   );
 
   const logout = useCallback(() => {
     storageService.setActiveOwnerId(null);
+    storageService.setActiveTenantId(null);
     setCurrentOwner(null);
+    setCurrentTenant(null);
+    storageService.setActiveRole('owner');
+    setCurrentRole('owner');
   }, []);
 
   const switchOwner = useCallback(
     (ownerId: string): { success: boolean; error?: string } => {
-      return quickLogin(ownerId);
+      return loginAsOwner(ownerId);
     },
-    [quickLogin]
+    [loginAsOwner]
   );
 
   const register = useCallback(
     (data: RegisterOwnerInput): { success: boolean; error?: string } => {
       try {
         const newOwner = storageService.registerOwner(data);
+        storageService.setActiveRole('owner');
+        storageService.setActiveOwnerId(newOwner.id);
+        setCurrentRole('owner');
         setCurrentOwner(newOwner);
         refreshOwners();
         return { success: true };
@@ -125,22 +198,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const activeId = storageService.getActiveOwnerId();
         setCurrentOwner(activeId ? storageService.getOwnerAccountById(activeId) : null);
       }
+      if (e.key === 'staynest_active_role_v2') {
+        setCurrentRole(storageService.getActiveRole());
+      }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  const isAuthenticated = currentRole === 'superadmin' ? true : currentRole === 'tenant' ? !!currentTenant : !!currentOwner;
+
   const value: AuthContextValue = {
+    currentRole,
     currentOwner,
-    isAuthenticated: !!currentOwner,
+    currentTenant,
+    superAdmin: SUPER_ADMIN_ACCOUNT,
+    isAuthenticated,
     registeredOwners,
+    registeredTenants,
     login,
     quickLogin,
+    loginAsSuperAdmin,
+    loginAsTenant,
+    switchRole,
     logout,
     switchOwner,
     register,
     updateCurrentProfile,
-    refreshOwners
+    refreshOwners,
+    refreshTenant
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -153,3 +239,4 @@ export const useAuth = (): AuthContextValue => {
   }
   return context;
 };
+

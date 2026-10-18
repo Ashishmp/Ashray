@@ -39,11 +39,15 @@ import { Expense } from '../types/expense';
 import { Complaint } from '../types/complaint';
 import { StaffMember } from '../types/staff';
 import { OwnerProfile, NotificationItem } from '../types/common';
-import { OwnerAccount, RegisterOwnerInput } from '../types/auth';
+import { OwnerAccount, RegisterOwnerInput, SuperAdminAccount, TenantAccount, UserRole } from '../types/auth';
+import { TenantDocument } from '../types/tenant';
+import { PaymentMethod } from '../types/payment';
 import { generateId } from '../utils/formatters';
 
 const STORAGE_KEYS = {
+  ACTIVE_ROLE: 'staynest_active_role_v2',
   ACTIVE_OWNER_ID: 'staynest_active_owner_id_v2',
+  ACTIVE_TENANT_ID: 'staynest_active_tenant_id_v2',
   REGISTERED_OWNERS: 'staynest_registered_owners_v2',
   LEGACY_PROPERTIES: 'staynest_properties_clean_v3',
   LEGACY_ROOMS: 'staynest_rooms_clean_v3',
@@ -55,6 +59,46 @@ const STORAGE_KEYS = {
   LEGACY_OWNER: 'staynest_owner_clean_v3',
   LEGACY_NOTIFICATIONS: 'staynest_notifications_clean_v3'
 };
+
+export const SUPER_ADMIN_ACCOUNT: SuperAdminAccount = {
+  id: 'usr_super_admin',
+  name: 'Vikramaditya Rao',
+  email: 'admin@staynest.in',
+  phone: '9845000001',
+  role: 'superadmin',
+  title: 'Platform Super Administrator'
+};
+
+export const DEFAULT_TENANT_ACCOUNTS: TenantAccount[] = [
+  {
+    id: 'tnt_02',
+    name: 'Rohan Verma',
+    email: 'rohan.verma@techcorp.com',
+    phone: '9845223344',
+    role: 'tenant',
+    propertyId: 'prop_01',
+    propertyName: 'StayNest Elite - Koramangala',
+    roomId: 'room_102',
+    roomNumber: '102',
+    bedCode: 'Bed A',
+    ownerId: INITIAL_OWNER_PROFILE.id,
+    monthlyRent: 13500
+  },
+  {
+    id: 'tnt_04',
+    name: 'Karthik Subramanian',
+    email: 'karthik.s@zomato.com',
+    phone: '9845445566',
+    role: 'tenant',
+    propertyId: 'prop_01',
+    propertyName: 'StayNest Elite - Koramangala',
+    roomId: 'room_103',
+    roomNumber: '103',
+    bedCode: 'Bed A',
+    ownerId: INITIAL_OWNER_PROFILE.id,
+    monthlyRent: 13500
+  }
+];
 
 export const DEFAULT_OWNERS: OwnerAccount[] = [
   INITIAL_OWNER_PROFILE,
@@ -576,6 +620,274 @@ class StorageService {
       this.saveStaff(ownerId, INITIAL_STAFF);
       this.saveNotifications(ownerId, INITIAL_NOTIFICATIONS);
     }
+  }
+
+  // ==========================================
+  // ROLE & TENANT MANAGEMENT
+  // ==========================================
+
+  getActiveRole(): UserRole {
+    const role = localStorage.getItem(STORAGE_KEYS.ACTIVE_ROLE) as UserRole | null;
+    return role || 'owner';
+  }
+
+  setActiveRole(role: UserRole): void {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_ROLE, role);
+  }
+
+  getActiveTenantId(): string {
+    const id = localStorage.getItem(STORAGE_KEYS.ACTIVE_TENANT_ID);
+    return id || 'tnt_02';
+  }
+
+  setActiveTenantId(id: string | null): void {
+    if (!id) {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_TENANT_ID);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_TENANT_ID, id);
+    }
+  }
+
+  getRegisteredTenants(): TenantAccount[] {
+    return DEFAULT_TENANT_ACCOUNTS;
+  }
+
+  getTenantAccountById(tenantId: string): TenantAccount | null {
+    const account = DEFAULT_TENANT_ACCOUNTS.find(t => t.id === tenantId);
+    if (account) return account;
+
+    // Fallback: search in loaded owners
+    const owners = this.getRegisteredOwners();
+    for (const owner of owners) {
+      const tenants = this.getTenants(owner.id);
+      const match = tenants.find(t => t.id === tenantId);
+      if (match) {
+        return {
+          id: match.id,
+          name: match.name,
+          email: match.email,
+          phone: match.phone,
+          role: 'tenant',
+          propertyId: match.propertyId,
+          propertyName: match.propertyName,
+          roomId: match.roomId,
+          roomNumber: match.roomNumber,
+          bedCode: match.bedCode,
+          ownerId: owner.id,
+          monthlyRent: match.monthlyRent
+        };
+      }
+    }
+    return null;
+  }
+
+  getTenantFullProfile(tenantId: string): { tenant: Tenant; ownerId: string } | null {
+    const owners = this.getRegisteredOwners();
+    for (const owner of owners) {
+      const tenants = this.getTenants(owner.id);
+      const match = tenants.find(t => t.id === tenantId);
+      if (match) {
+        // Ensure default lifestyle & KYC docs exist if empty
+        if (!match.documents || match.documents.length === 0) {
+          match.documents = [
+            {
+              id: 'doc_aadhaar_01',
+              type: 'aadhaar',
+              title: 'Aadhaar Card (Front & Back)',
+              fileName: 'aadhaar_card_verified.pdf',
+              fileSize: '1.4 MB',
+              uploadedAt: '2026-10-01T10:30:00Z',
+              status: 'verified',
+              documentNumber: match.idProofType === 'Aadhaar' ? match.idProofNumber : '4829-1029-3841',
+              verificationNotes: 'UIDAI QR Code electronically validated & approved by Property Manager.'
+            },
+            {
+              id: 'doc_pan_01',
+              type: 'pan',
+              title: 'Permanent Account Number (PAN)',
+              fileName: 'pan_card.jpg',
+              fileSize: '780 KB',
+              uploadedAt: '2026-10-01T11:00:00Z',
+              status: 'verified',
+              documentNumber: match.idProofType === 'PAN' ? match.idProofNumber : 'ABCDE1234F',
+              verificationNotes: 'ITD Database PAN active & name match verified.'
+            },
+            {
+              id: 'doc_work_01',
+              type: 'college_work_id',
+              title: 'Workplace / Student Identity Card',
+              fileName: 'company_id_badge.png',
+              fileSize: '1.2 MB',
+              uploadedAt: '2026-10-02T14:15:00Z',
+              status: 'verified',
+              documentNumber: 'EMP-90241',
+              verificationNotes: 'Verified against current HR employment letter.'
+            },
+            {
+              id: 'doc_police_01',
+              type: 'police_verification',
+              title: 'Police Verification Form',
+              fileName: 'police_tenant_verification.pdf',
+              fileSize: '2.1 MB',
+              uploadedAt: '2026-10-05T16:00:00Z',
+              status: 'pending',
+              verificationNotes: 'Submitted to local jurisdictional police station. Awaiting acknowledgment seal.'
+            }
+          ];
+          match.bloodGroup = match.bloodGroup || 'B+';
+          match.foodPreference = match.foodPreference || 'Veg';
+          match.permanentAddress = match.permanentAddress || 'Plot 42, Green Glen Layout, Bellandur, Bengaluru 560103';
+          this.saveTenants(owner.id, tenants);
+        }
+        return { tenant: match, ownerId: owner.id };
+      }
+    }
+    return null;
+  }
+
+  updateTenantFullProfile(tenantId: string, updates: Partial<Tenant>): Tenant | null {
+    const owners = this.getRegisteredOwners();
+    for (const owner of owners) {
+      const tenants = this.getTenants(owner.id);
+      const idx = tenants.findIndex(t => t.id === tenantId);
+      if (idx !== -1) {
+        tenants[idx] = {
+          ...tenants[idx],
+          ...updates,
+          updatedAt: new Date().toISOString()
+        };
+        this.saveTenants(owner.id, tenants);
+        return tenants[idx];
+      }
+    }
+    return null;
+  }
+
+  uploadTenantKYCDocument(tenantId: string, doc: TenantDocument): TenantDocument {
+    const profile = this.getTenantFullProfile(tenantId);
+    if (!profile) return doc;
+
+    const tenant = profile.tenant;
+    const docs = tenant.documents ? [...tenant.documents] : [];
+    const existingIndex = docs.findIndex(d => d.type === doc.type);
+
+    if (existingIndex !== -1) {
+      docs[existingIndex] = { ...docs[existingIndex], ...doc, uploadedAt: new Date().toISOString() };
+    } else {
+      docs.push({ ...doc, id: doc.id || generateId('doc'), uploadedAt: new Date().toISOString() });
+    }
+
+    this.updateTenantFullProfile(tenantId, { documents: docs });
+    return doc;
+  }
+
+  payRentOnline(
+    tenantId: string,
+    data: {
+      baseRent: number;
+      maintenanceFee?: number;
+      lateFee?: number;
+      totalPaid: number;
+      paymentMethod: PaymentMethod;
+      transactionRef: string;
+      billingMonth: string;
+      notes?: string;
+    }
+  ): { payment: PaymentRecord; tenant: Tenant } {
+    const profile = this.getTenantFullProfile(tenantId);
+    if (!profile) throw new Error('Tenant record not found.');
+
+    const { tenant, ownerId } = profile;
+    const paymentId = generateId('pay');
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    const receiptNumber = `REC-2026-${randomDigits}`;
+
+    const newPayment: PaymentRecord = {
+      id: paymentId,
+      receiptNumber,
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      propertyId: tenant.propertyId,
+      propertyName: tenant.propertyName || 'StayNest Residence',
+      roomId: tenant.roomId,
+      roomNumber: tenant.roomNumber || '102',
+      billingMonth: data.billingMonth || 'October 2026',
+      baseRent: data.baseRent,
+      maintenanceFee: data.maintenanceFee || 450,
+      lateFee: data.lateFee || 0,
+      discount: 0,
+      totalDue: data.totalPaid,
+      amountPaid: data.totalPaid,
+      balanceDue: 0,
+      paymentDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date().toISOString().split('T')[0],
+      paymentMethod: data.paymentMethod,
+      transactionRef: data.transactionRef,
+      status: 'Paid',
+      notes: data.notes || `Online payment processed via ${data.paymentMethod}. Self-service tenant clearance.`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Save payment to owner ledger
+    const existingPayments = this.getPayments(ownerId);
+    this.savePayments(ownerId, [newPayment, ...existingPayments]);
+
+    // Update tenant balance & status
+    const updatedTenant = this.updateTenantFullProfile(tenantId, {
+      rentStatus: 'Paid',
+      outstandingBalance: 0
+    });
+
+    return { payment: newPayment, tenant: updatedTenant || tenant };
+  }
+
+  getTenantPaymentHistory(tenantId: string): PaymentRecord[] {
+    const profile = this.getTenantFullProfile(tenantId);
+    if (!profile) return [];
+    const payments = this.getPayments(profile.ownerId);
+    return payments.filter(p => p.tenantId === tenantId);
+  }
+
+  // ==========================================
+  // SUPER ADMIN AGGREGATIONS
+  // ==========================================
+
+  getAllOwnersOverviewForSuperAdmin(): Array<{
+    owner: OwnerAccount;
+    propertyCount: number;
+    roomCount: number;
+    bedCount: number;
+    tenantCount: number;
+    monthlyRevenue: number;
+  }> {
+    const owners = this.getRegisteredOwners();
+    return owners.map(owner => {
+      const properties = this.getProperties(owner.id);
+      const rooms = this.getRooms(owner.id);
+      const tenants = this.getTenants(owner.id);
+      const payments = this.getPayments(owner.id);
+
+      const bedCount = rooms.reduce((acc, r) => acc + r.capacity, 0);
+      const monthlyRevenue = payments
+        .filter(p => p.status === 'Paid')
+        .reduce((acc, p) => acc + p.amountPaid, 0);
+
+      return {
+        owner,
+        propertyCount: properties.length,
+        roomCount: rooms.length,
+        bedCount,
+        tenantCount: tenants.filter(t => t.status === 'Active').length,
+        monthlyRevenue
+      };
+    });
+  }
+
+  updateOwnerStatus(ownerId: string, status: 'verified' | 'pending' | 'suspended'): void {
+    const owners = this.getRegisteredOwners();
+    const updated = owners.map(o => (o.id === ownerId ? { ...o, status } : o));
+    this.saveRegisteredOwners(updated);
   }
 }
 

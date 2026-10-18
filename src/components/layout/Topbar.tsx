@@ -34,13 +34,19 @@ const PAGE_TITLES: Record<string, { title: string; category: string }> = {
   '/maintenance': { title: 'Complaints & Maintenance', category: 'Operations' },
   '/staff': { title: 'Staff & Team', category: 'Operations' },
   '/reports': { title: 'Reports & Analytics', category: 'Insights' },
-  '/settings': { title: 'Settings & Defaults', category: 'Configuration' }
+  '/settings': { title: 'Settings & Defaults', category: 'Configuration' },
+  '/admin': { title: 'Platform Super Admin', category: 'Platform Governance' },
+  '/tenant': { title: 'Resident Overview', category: 'My Stay' },
+  '/tenant/profile': { title: 'My Profile & KYC Verification', category: 'Resident Account' },
+  '/tenant/payments': { title: 'Rent & Official Receipts', category: 'Financials' },
+  '/tenant/complaints': { title: 'Maintenance & Service Requests', category: 'Resident Support' }
 };
 
 export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { currentRole, currentTenant, logout } = useAuth();
+
   const {
     properties,
     selectedPropertyId,
@@ -107,25 +113,62 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
 
         {/* Right: Property Selector, Search, Notifications, Demo Reset */}
         <div className="topbar-right">
-          {/* Property Selector */}
-          <div className="property-selector-box" title="Filter dashboard data by property">
-            <Building className="property-selector-icon" />
-            <select
-              className="property-select"
-              value={selectedPropertyId}
-              onChange={e => setSelectedPropertyId(e.target.value)}
-              aria-label="Filter by property"
+          {/* Role Context Widget */}
+          {currentRole === 'tenant' ? (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 12px',
+                backgroundColor: 'var(--primary-50)',
+                borderRadius: 'var(--radius-full)',
+                border: '1px solid var(--primary-100)',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--primary-800)'
+              }}
             >
-              <option value="all">
-                {properties.length === 0 ? 'No Properties Added' : `All Properties (${properties.length})`}
-              </option>
-              {properties.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              <Building size={14} color="var(--primary-600)" />
+              <span>{currentTenant?.propertyName || 'StayNest Elite'} • Room {currentTenant?.roomNumber || '102'}</span>
+            </div>
+          ) : currentRole === 'superadmin' ? (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                borderRadius: 'var(--radius-full)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: 'var(--primary-700)'
+              }}
+            >
+              <span>👑 Multi-Tenant Platform Console</span>
+            </div>
+          ) : (
+            <div className="property-selector-box" title="Filter dashboard data by property">
+              <Building className="property-selector-icon" />
+              <select
+                className="property-select"
+                value={selectedPropertyId}
+                onChange={e => setSelectedPropertyId(e.target.value)}
+                aria-label="Filter by property"
+              >
+                <option value="all">
+                  {properties.length === 0 ? 'No Properties Added' : `All Properties (${properties.length})`}
                 </option>
-              ))}
-            </select>
-          </div>
+                {properties.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Quick Search */}
           <div className="topbar-search-wrapper">
