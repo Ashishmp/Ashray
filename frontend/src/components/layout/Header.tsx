@@ -12,6 +12,9 @@ import {
   BedDouble,
   ShieldCheck,
   Crown,
+  Home,
+  Wrench,
+  FileCheck,
 } from 'lucide-react';
 import { useProperty } from '../../context/PropertyContext';
 import { useAuth } from '../../context/AuthContext';
@@ -38,6 +41,22 @@ const routeTitles: Record<NavRoute, { title: string; subtitle: string }> = {
   platform_subscriptions: {
     title: 'SaaS Subscriptions & Tiers',
     subtitle: 'Manage monetization tiers, Indian billing compliance, and active subscriptions',
+  },
+  tenant_dashboard: {
+    title: 'My PG Stay & Room Overview',
+    subtitle: 'Room details, roommate contact, food schedule, and Wi-Fi access',
+  },
+  tenant_profile: {
+    title: 'Resident Profile & Document KYC',
+    subtitle: 'Upload Aadhaar, PAN, College/Work ID, and manage emergency contacts',
+  },
+  tenant_payments: {
+    title: 'Rent Payments & Receipts',
+    subtitle: 'Pay monthly rent dues online and download tax-exempt HRA rent receipts',
+  },
+  tenant_requests: {
+    title: 'Maintenance & Service Requests',
+    subtitle: 'Report room repairs, Wi-Fi issues, or daily cleaning requests to management',
   },
   overview: {
     title: 'PG Dashboard Overview',
@@ -90,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
   onQuickAction,
 }) => {
   const { properties, selectedPropertyId, setSelectedPropertyId } = useProperty();
-  const { isPlatformOwner, isPGOwner, isOwner } = useAuth();
+  const { isPlatformOwner, isPGOwner, isTenant, isOwner } = useAuth();
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
 
   const routeInfo = routeTitles[currentRoute] || { title: 'Nivaas Dashboard', subtitle: '' };
@@ -119,8 +138,18 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Actions Toolbar */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Property Selector Dropdown (Hidden for Platform Owner because Platform Owner does not manage branch properties) */}
-          {!isPlatformOwner ? (
+          {/* Location Badge / Selector */}
+          {isPlatformOwner ? (
+            <div className="hidden sm:flex items-center gap-1.5 bg-[#F8F6F2] border border-[#E8E1D9] rounded-lg px-2.5 py-1.5 text-xs text-[#716A63]">
+              <Crown className="w-3.5 h-3.5 text-purple-700" />
+              <span className="font-semibold text-[#24211F]">Pan-India SaaS Network</span>
+            </div>
+          ) : isTenant ? (
+            <div className="hidden sm:flex items-center gap-1.5 bg-[#F8F6F2] border border-[#E8E1D9] rounded-lg px-2.5 py-1.5 text-xs text-[#716A63]">
+              <Building className="w-3.5 h-3.5 text-[#B85C38]" />
+              <span className="font-semibold text-[#24211F]">Nivaas Comforts (Room 102)</span>
+            </div>
+          ) : (
             <div className="relative">
               <div className="flex items-center gap-2 bg-white border border-[#E8E1D9] rounded-lg px-2.5 py-1.5 shadow-2xs hover:border-[#B85C38]/40 transition-colors">
                 <Building className="w-4 h-4 text-[#B85C38] shrink-0" />
@@ -138,11 +167,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </select>
               </div>
             </div>
-          ) : (
-            <div className="hidden sm:flex items-center gap-1.5 bg-[#F8F6F2] border border-[#E8E1D9] rounded-lg px-2.5 py-1.5 text-xs text-[#716A63]">
-              <Crown className="w-3.5 h-3.5 text-purple-700" />
-              <span className="font-semibold text-[#24211F]">Pan-India SaaS Network</span>
-            </div>
           )}
 
           {/* Global Search Bar */}
@@ -152,13 +176,19 @@ export const Header: React.FC<HeaderProps> = ({
             className="hidden sm:flex items-center gap-2 bg-white border border-[#E8E1D9] text-[#716A63] text-xs px-3 py-1.5 rounded-lg shadow-2xs hover:border-[#B85C38]/40 hover:text-[#24211F] transition-colors"
           >
             <Search className="w-3.5 h-3.5 text-[#716A63]" />
-            <span>{isPlatformOwner ? 'Search PG owners...' : 'Search residents, rooms...'}</span>
+            <span>
+              {isPlatformOwner
+                ? 'Search PG owners...'
+                : isTenant
+                ? 'Search receipts, tickets...'
+                : 'Search residents, rooms...'}
+            </span>
             <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[10px] bg-[#F8F6F2] text-[#716A63] rounded border border-[#E8E1D9] font-mono">
               ⌘K
             </kbd>
           </button>
 
-          {/* Quick Action Button: Limited to Onboarding for Platform Owner; PG Operations for PG Owner */}
+          {/* Quick Action Buttons according to role */}
           {isPlatformOwner ? (
             <button
               type="button"
@@ -167,6 +197,15 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span className="hidden sm:inline">Onboard PG</span>
+            </button>
+          ) : isTenant ? (
+            <button
+              type="button"
+              onClick={() => onQuickAction('record_payment')}
+              className="flex items-center gap-1.5 bg-[#B85C38] hover:bg-[#984629] text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-xs transition-colors"
+            >
+              <CreditCard className="w-4 h-4 stroke-[2.5]" />
+              <span className="hidden sm:inline">Pay Rent</span>
             </button>
           ) : (
             <div className="relative">

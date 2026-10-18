@@ -14,6 +14,8 @@ import {
   NotificationItem,
   ActivityLog,
   KpiMetrics,
+  ServiceRequest,
+  TenantDocument,
 } from '../types';
 import {
   mockUsers,
@@ -27,6 +29,7 @@ import {
   mockStaff,
   mockNotifications,
   mockActivityLogs,
+  mockServiceRequests,
 } from '../mock/mockData';
 
 const STORAGE_KEYS = {
@@ -41,6 +44,7 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'nivaas_notifications_v1',
   ACTIVITY: 'nivaas_activity_v1',
   USERS: 'nivaas_users_v1',
+  SERVICE_REQUESTS: 'nivaas_service_requests_v1',
 };
 
 // Helper for local storage persistence
@@ -73,6 +77,7 @@ class NivaasApiService {
   private staff: StaffMember[];
   private notifications: NotificationItem[];
   private activityLogs: ActivityLog[];
+  private serviceRequests: ServiceRequest[];
 
   constructor() {
     this.pgOwners = loadFromStorage(STORAGE_KEYS.PG_OWNERS, mockPGOwners);
@@ -86,6 +91,7 @@ class NivaasApiService {
     this.staff = loadFromStorage(STORAGE_KEYS.STAFF, mockStaff);
     this.notifications = loadFromStorage(STORAGE_KEYS.NOTIFICATIONS, mockNotifications);
     this.activityLogs = loadFromStorage(STORAGE_KEYS.ACTIVITY, mockActivityLogs);
+    this.serviceRequests = loadFromStorage(STORAGE_KEYS.SERVICE_REQUESTS, mockServiceRequests);
   }
 
   public resetAllData(): void {
@@ -100,6 +106,7 @@ class NivaasApiService {
     localStorage.removeItem(STORAGE_KEYS.STAFF);
     localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
     localStorage.removeItem(STORAGE_KEYS.ACTIVITY);
+    localStorage.removeItem(STORAGE_KEYS.SERVICE_REQUESTS);
 
     this.pgOwners = [...mockPGOwners];
     this.users = [...mockUsers];
@@ -112,6 +119,7 @@ class NivaasApiService {
     this.staff = [...mockStaff];
     this.notifications = [...mockNotifications];
     this.activityLogs = [...mockActivityLogs];
+    this.serviceRequests = [...mockServiceRequests];
   }
 
   // /api/v1/dashboard/summary
@@ -787,6 +795,164 @@ class NivaasApiService {
       avgRevenuePerPG,
       recentOnboardings: this.pgOwners.slice(0, 5),
     };
+  }
+
+  // ==========================================
+  // Tenant Portal APIs
+  // ==========================================
+  public async updateResidentProfile(
+    residentId: string,
+    updates: Partial<Resident>
+  ): Promise<Resident> {
+    const idx = this.residents.findIndex((r) => r.id === residentId);
+    if (idx === -1) throw new Error('Resident record not found');
+
+    this.residents[idx] = {
+      ...this.residents[idx],
+      ...updates,
+      id: residentId, // prevent ID overwrite
+    };
+    saveToStorage(STORAGE_KEYS.RESIDENTS, this.residents);
+
+    this.logActivity({
+      propertyId: this.residents[idx].propertyId,
+      propertyName: this.residents[idx].propertyName,
+      action: 'Profile Updated',
+      description: `${this.residents[idx].name} updated their resident profile information`,
+      performedBy: this.residents[idx].name,
+      category: 'resident',
+    });
+
+    return this.residents[idx];
+  }
+
+  public async uploadResidentDocument(
+    residentId: string,
+    doc: Omit<TenantDocument, 'id' | 'uploadDate'>
+  ): Promise<TenantDocument> {
+    const idx = this.residents.findIndex((r) => r.id === residentId);
+    if (idx === -1) throw new Error('Resident record not found');
+
+    const newDoc: TenantDocument = {
+      ...doc,
+      id: `doc_${Date.now()}`,
+      uploadDate: new Date().toISOString().split('T')[0],
+      status: 'verified',
+    };
+
+    const currentDocs = this.residents[idx].documents || [];
+    const filteredDocs = currentDocs.filter((d) => d.type !== doc.type);
+    filteredDocs.push(newDoc);
+
+    this.residents[idx] = {
+      ...this.residents[idx],
+      documents: filteredDocs,
+      kycStatus: 'verified',
+      aadhaarVerified: doc.type.startsWith('aadhaar') ? true : this.residents[idx].aadhaarVerified,
+    };
+    saveToStorage(STORAGE_KEYS.RESIDENTS, this.residents);
+
+    this.logActivity({
+      propertyId: this.residents[idx].propertyId,
+      propertyName: this.residents[idx].propertyName,
+      action: 'Document Uploaded',
+      description: `${this.residents[idx].name} uploaded ${newDoc.name} (${newDoc.type})`,
+      performedBy: this.residents[idx].name,
+      category: 'resident',
+    });
+
+    return newDoc;
+  }
+
+  public async getResidentPayments(residentId: string): Promise<Payment[]> {
+    return this.payments.filter((p) => p.residentId === residentId);
+  }
+
+  public async payRentOnline(data: {
+    residentId: string;
+    amount: number;
+    paymentMethod: PaymentMethod;
+    billingMonth: string;
+    notes?: string;
+    transactionRef?: string;
+  }): Promise<Payment> {
+    const res = this.residents.find((r) => r.id === data.residentId);
+    if (!res) throw new Error('Resident record not found');
+
+    const newPayment: Payment = {
+      id: `pay_${Date.now()}`,
+      residentId: res.id,
+      residentName: res.name,
+      propertyId: res.propertyId,
+      propertyName: res.propertyName,
+      roomNumber: res.roomNumber,
+      bedNumber: res.bedNumber,
+      billingMonth: data.billingMonth,
+      amountDue: data.amount,
+      amountPaid: data.amount,
+      balanceDue: 0,
+      paidDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date().toISOString().split('T')[0],
+      paymentMethod: data.paymentMethod,
+      status: 'paid',
+      transactionRef:
+        data.transactionRef || `UPI/NIV/${Date.now().toString().slice(-8)}`,
+      receiptNumber: `NV-REC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      notes: data.notes || 'Paid via Nivaas Tenant Portal',
+    };
+
+    this.payments.unshift(newPayment);
+    saveToStorage(STORAGE_KEYS.PAYMENTS, this.payments);
+
+    // Update resident payment status
+    const resIdx = this.residents.findIndex((r) => r.id === data.residentId);
+    if (resIdx !== -1) {
+      this.residents[resIdx].paymentStatus = 'paid';
+      saveToStorage(STORAGE_KEYS.RESIDENTS, this.residents);
+    }
+
+    this.logActivity({
+      propertyId: res.propertyId,
+      propertyName: res.propertyName,
+      action: 'Rent Paid Online',
+      description: `${res.name} paid ₹${data.amount.toLocaleString('en-IN')} for ${data.billingMonth} via ${data.paymentMethod.toUpperCase()}`,
+      performedBy: res.name,
+      category: 'payment',
+    });
+
+    return newPayment;
+  }
+
+  public async getServiceRequests(residentId?: string): Promise<ServiceRequest[]> {
+    if (residentId) {
+      return this.serviceRequests.filter((s) => s.residentId === residentId);
+    }
+    return [...this.serviceRequests];
+  }
+
+  public async createServiceRequest(
+    data: Omit<ServiceRequest, 'id' | 'createdAt' | 'status'>
+  ): Promise<ServiceRequest> {
+    const newReq: ServiceRequest = {
+      ...data,
+      id: `sr_${Date.now()}`,
+      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      status: 'open',
+    };
+
+    this.serviceRequests.unshift(newReq);
+    saveToStorage(STORAGE_KEYS.SERVICE_REQUESTS, this.serviceRequests);
+
+    this.logActivity({
+      propertyId: data.propertyId,
+      propertyName: data.propertyName,
+      action: 'Maintenance Request',
+      description: `${data.residentName} raised maintenance request: "${data.title}"`,
+      performedBy: data.residentName,
+      category: 'system',
+    });
+
+    return newReq;
   }
 
   // Activity Logs

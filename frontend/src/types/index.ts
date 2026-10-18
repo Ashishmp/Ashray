@@ -1,4 +1,4 @@
-export type UserRole = 'platform_owner' | 'pg_owner' | 'owner' | 'manager';
+export type UserRole = 'platform_owner' | 'pg_owner' | 'owner' | 'manager' | 'tenant';
 
 export type SubscriptionPlan = 'starter' | 'growth' | 'enterprise';
 export type SubscriptionStatus = 'active' | 'trial' | 'suspended';
@@ -31,6 +31,7 @@ export interface User {
   avatar: string;
   panNumber?: string;
   businessName?: string;
+  residentId?: string; // Links tenant to their resident record
 }
 
 export type PropertyType = 'boys' | 'girls' | 'co-living';
@@ -99,6 +100,16 @@ export type KYCStatus = 'verified' | 'pending' | 'rejected';
 export type ResidencyStatus = 'active' | 'notice_period' | 'checked_out';
 export type ResidentPaymentStatus = 'paid' | 'pending' | 'overdue';
 
+export interface TenantDocument {
+  id: string;
+  type: 'aadhaar_front' | 'aadhaar_back' | 'pan' | 'college_work_id' | 'police_verification';
+  name: string;
+  fileUrl: string;
+  uploadDate: string;
+  status: 'verified' | 'pending' | 'rejected';
+  fileSize?: string;
+}
+
 export interface Resident {
   id: string;
   name: string;
@@ -132,7 +143,28 @@ export interface Resident {
   residencyStatus: ResidencyStatus;
   collegeOrCompany?: string;
   vehicleNumber?: string;
+  bloodGroup?: string;
+  foodPreference?: 'veg' | 'non-veg' | 'both';
+  workOrCollegeId?: string;
+  documents?: TenantDocument[];
   notes?: string;
+}
+
+export interface ServiceRequest {
+  id: string;
+  residentId: string;
+  residentName: string;
+  propertyId: string;
+  propertyName: string;
+  roomNumber: string;
+  bedNumber: string;
+  category: 'electrical' | 'plumbing' | 'wifi' | 'cleaning' | 'carpentry' | 'other';
+  title: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'open' | 'in_progress' | 'resolved';
+  createdAt: string;
+  resolvedAt?: string;
 }
 
 export type PaymentMethod = 'upi' | 'bank_transfer' | 'cash' | 'cheque';

@@ -225,6 +225,35 @@ export const LoginScreen: React.FC = () => {
                     </div>
                     <ArrowRight className="w-4 h-4 text-[#716A63] group-hover:text-blue-600 shrink-0" />
                   </button>
+
+                  {/* Option 4: Tenant / Resident */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      loginAs('tenant');
+                      toast.success(
+                        'Signed in as Resident Tenant',
+                        'Welcome back, Rohan! Upload KYC documents, check ledger, and pay rent online.'
+                      );
+                    }}
+                    className="w-full text-left p-2.5 rounded-lg bg-white border border-[#E8E1D9] hover:border-emerald-500 hover:shadow-xs transition-all flex items-center justify-between group"
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <p className="text-xs font-bold text-[#24211F] group-hover:text-emerald-700">
+                          Rohan Desai (Resident Tenant — Room 102)
+                        </p>
+                        <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.2 rounded uppercase">
+                          TENANT SELF-SERVICE
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#716A63] mt-0.5">
+                        Resident at Nivaas Comforts (Koramangala). Upload Aadhaar/PAN documents, view payment history, and pay rent online.
+                      </p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-[#716A63] group-hover:text-emerald-600 shrink-0" />
+                  </button>
                 </div>
               </div>
 

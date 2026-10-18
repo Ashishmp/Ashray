@@ -15,6 +15,10 @@ import {
   ShieldCheck,
   User as UserIcon,
   Crown,
+  FileText,
+  Wrench,
+  Home,
+  FileCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -31,7 +35,11 @@ export type NavRoute =
   | 'staff'
   | 'reports'
   | 'notifications'
-  | 'settings';
+  | 'settings'
+  | 'tenant_dashboard'
+  | 'tenant_profile'
+  | 'tenant_payments'
+  | 'tenant_requests';
 
 interface SidebarProps {
   currentRoute: NavRoute;
@@ -50,51 +58,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onMobileClose,
   onOpenOwnerAccount,
 }) => {
-  const { currentUser, isPlatformOwner, isPGOwner, isManager, switchRole, logout } = useAuth();
+  const { currentUser, isPlatformOwner, isPGOwner, isManager, isTenant, switchRole, logout } = useAuth();
 
-  // Navigation Items dynamically filtered based on limited platform owner rights vs PG owner operations
-  const navItems = isPlatformOwner
-    ? [
-        { id: 'platform_overview' as NavRoute, label: 'Platform Overview', icon: LayoutDashboard },
-        { id: 'platform_owners' as NavRoute, label: 'PG Owners Directory', icon: Building2 },
-        { id: 'platform_subscriptions' as NavRoute, label: 'Subscriptions & Plans', icon: CreditCard },
-        {
-          id: 'notifications' as NavRoute,
-          label: 'Platform Audit & Logs',
-          icon: Bell,
-          badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
-        },
-        { id: 'settings' as NavRoute, label: 'Platform Settings', icon: Settings },
-      ]
-    : [
-        { id: 'overview' as NavRoute, label: 'Overview', icon: LayoutDashboard },
-        { id: 'properties' as NavRoute, label: 'Properties', icon: Building2 },
-        { id: 'rooms' as NavRoute, label: 'Rooms & Beds', icon: BedDouble },
-        { id: 'residents' as NavRoute, label: 'Residents (Tenants)', icon: Users },
-        { id: 'payments' as NavRoute, label: 'Payments', icon: CreditCard },
-        { id: 'expenses' as NavRoute, label: 'Expenses', icon: Receipt },
-        ...(isPGOwner
-          ? [{ id: 'staff' as NavRoute, label: 'Staff & Managers', icon: UserCheck }]
-          : []),
-        { id: 'reports' as NavRoute, label: 'Reports', icon: BarChart3 },
-        {
-          id: 'notifications' as NavRoute,
-          label: 'Notifications',
-          icon: Bell,
-          badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
-        },
-        { id: 'settings' as NavRoute, label: 'PG Settings', icon: Settings },
-      ];
+  // Navigation Items dynamically filtered based on role
+  let navItems: { id: NavRoute; label: string; icon: any; badge?: number }[] = [];
+
+  if (isPlatformOwner) {
+    navItems = [
+      { id: 'platform_overview', label: 'Platform Overview', icon: LayoutDashboard },
+      { id: 'platform_owners', label: 'PG Owners Directory', icon: Building2 },
+      { id: 'platform_subscriptions', label: 'Subscriptions & Plans', icon: CreditCard },
+      {
+        id: 'notifications',
+        label: 'Platform Audit & Logs',
+        icon: Bell,
+        badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
+      },
+      { id: 'settings', label: 'Platform Settings', icon: Settings },
+    ];
+  } else if (isTenant) {
+    navItems = [
+      { id: 'tenant_dashboard', label: 'My PG Stay & Room', icon: Home },
+      { id: 'tenant_profile', label: 'Profile & Documents', icon: FileCheck },
+      { id: 'tenant_payments', label: 'Rent & Receipts', icon: CreditCard },
+      { id: 'tenant_requests', label: 'Maintenance Requests', icon: Wrench },
+      {
+        id: 'notifications',
+        label: 'Notifications',
+        icon: Bell,
+        badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
+      },
+    ];
+  } else {
+    // PG Owner or Manager
+    navItems = [
+      { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+      { id: 'properties', label: 'Properties', icon: Building2 },
+      { id: 'rooms', label: 'Rooms & Beds', icon: BedDouble },
+      { id: 'residents', label: 'Residents (Tenants)', icon: Users },
+      { id: 'payments', label: 'Payments', icon: CreditCard },
+      { id: 'expenses', label: 'Expenses', icon: Receipt },
+      ...(isPGOwner
+        ? [{ id: 'staff' as NavRoute, label: 'Staff & Managers', icon: UserCheck }]
+        : []),
+      { id: 'reports', label: 'Reports', icon: BarChart3 },
+      {
+        id: 'notifications',
+        label: 'Notifications',
+        icon: Bell,
+        badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
+      },
+      { id: 'settings', label: 'PG Settings', icon: Settings },
+    ];
+  }
 
   const handleNavClick = (route: NavRoute) => {
     onNavigate(route);
     if (onMobileClose) onMobileClose();
   };
 
-  const handleRoleSwitch = (role: 'platform_owner' | 'pg_owner' | 'manager') => {
+  const handleRoleSwitch = (role: 'platform_owner' | 'pg_owner' | 'manager' | 'tenant') => {
     switchRole(role);
     if (role === 'platform_owner') {
       onNavigate('platform_overview');
+    } else if (role === 'tenant') {
+      onNavigate('tenant_dashboard');
     } else {
       onNavigate('overview');
     }
@@ -122,17 +150,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
                   isPlatformOwner
                     ? 'bg-purple-100 text-purple-900 border-purple-200'
+                    : isTenant
+                    ? 'bg-emerald-100 text-emerald-900 border-emerald-200'
                     : isPGOwner
                     ? 'bg-[#FDF4F0] text-[#B85C38] border-[#F6E2DA]'
                     : 'bg-blue-100 text-blue-900 border-blue-200'
                 }`}
               >
-                {isPlatformOwner ? 'PLATFORM ADMIN' : isPGOwner ? 'PG OWNER' : 'MANAGER'}
+                {isPlatformOwner
+                  ? 'PLATFORM'
+                  : isTenant
+                  ? 'TENANT'
+                  : isPGOwner
+                  ? 'PG OWNER'
+                  : 'MANAGER'}
               </span>
             </div>
             <p className="text-[11px] text-[#716A63] tracking-tight">
               {isPlatformOwner
                 ? 'SaaS Onboarding Console'
+                : isTenant
+                ? 'Resident Self-Service'
                 : 'Apne PG ka hisaab, ab aasaan'}
             </p>
           </div>
@@ -143,7 +181,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 px-3 py-4 overflow-y-auto space-y-1">
         <div className="px-3 pb-2 flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9E968E]">
-            {isPlatformOwner ? 'Platform Rights' : 'PG Management'}
+            {isPlatformOwner
+              ? 'Platform Rights'
+              : isTenant
+              ? 'Resident Portal'
+              : 'PG Management'}
           </p>
           {isPlatformOwner && (
             <span className="text-[10px] bg-amber-50 text-amber-700 font-semibold px-1.5 py-0.2 rounded border border-amber-200">
@@ -183,25 +225,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </div>
 
-      {/* Role Simulator Switcher with 3 clear perspectives */}
-      <div className="px-3.5 py-2.5 mx-3 mb-2 rounded-xl bg-[#F8F6F2] border border-[#E8E1D9] text-xs">
+      {/* Role Simulator Switcher with 4 clear perspectives */}
+      <div className="px-3 py-2.5 mx-3 mb-2 rounded-xl bg-[#F8F6F2] border border-[#E8E1D9] text-xs">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[11px] font-bold text-[#716A63] flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-[#B85C38]" /> Role Switcher
+            <Sparkles className="w-3.5 h-3.5 text-[#B85C38]" /> Role Simulator
           </span>
           <span
             className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase ${
               isPlatformOwner
                 ? 'bg-purple-100 text-purple-800'
+                : isTenant
+                ? 'bg-emerald-100 text-emerald-800'
                 : isPGOwner
                 ? 'bg-amber-100 text-amber-800'
                 : 'bg-blue-100 text-blue-800'
             }`}
           >
-            {isPlatformOwner ? 'Platform' : isPGOwner ? 'PG Owner' : 'Manager'}
+            {isPlatformOwner ? 'Platform' : isTenant ? 'Tenant' : isPGOwner ? 'PG Owner' : 'Manager'}
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-1 mt-1 text-[10px]">
+        <div className="grid grid-cols-2 gap-1 mt-1 text-[10px]">
           <button
             type="button"
             onClick={() => handleRoleSwitch('platform_owner')}
@@ -210,9 +254,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'bg-[#B85C38] text-white shadow-xs'
                 : 'bg-white text-[#716A63] border border-[#E8E1D9] hover:bg-stone-50'
             }`}
-            title="Limited Right: Only Boards PG Owners"
+            title="Limited: Only Boards PG Owners"
           >
-            Platform
+            Platform Super Admin
           </button>
           <button
             type="button"
@@ -224,7 +268,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
             title="PG Owner: Adds Staff & Manages Tenants"
           >
-            PG Owner
+            PG Business Owner
           </button>
           <button
             type="button"
@@ -234,9 +278,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'bg-[#B85C38] text-white shadow-xs'
                 : 'bg-white text-[#716A63] border border-[#E8E1D9] hover:bg-stone-50'
             }`}
-            title="Branch Manager: Assigned properties"
+            title="Branch Manager"
           >
-            Manager
+            Branch Manager
+          </button>
+          <button
+            type="button"
+            onClick={() => handleRoleSwitch('tenant')}
+            className={`py-1 text-center rounded font-semibold transition-colors ${
+              isTenant
+                ? 'bg-[#B85C38] text-white shadow-xs'
+                : 'bg-white text-[#716A63] border border-[#E8E1D9] hover:bg-stone-50'
+            }`}
+            title="Tenant: Profile, Upload KYC & Pay Rent"
+          >
+            Tenant (Resident)
           </button>
         </div>
       </div>
@@ -260,6 +316,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex items-center gap-1">
               {isPlatformOwner ? (
                 <Crown className="w-3.5 h-3.5 text-purple-600" />
+              ) : isTenant ? (
+                <Home className="w-3.5 h-3.5 text-emerald-600" />
               ) : isPGOwner ? (
                 <ShieldCheck className="w-3.5 h-3.5 text-[#B85C38]" />
               ) : (
@@ -268,6 +326,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="text-[11px] font-semibold text-[#716A63] truncate">
                 {isPlatformOwner
                   ? 'Platform Super Admin'
+                  : isTenant
+                  ? 'Resident Tenant'
                   : isPGOwner
                   ? 'PG Owner Admin'
                   : 'Property Manager'}

@@ -16,7 +16,12 @@ import { PlatformOverview } from '../../features/platform/PlatformOverview';
 import { PGOwnersPage } from '../../features/platform/PGOwnersPage';
 import { SubscriptionsPage } from '../../features/platform/SubscriptionsPage';
 import { OnboardPGOwnerModal } from '../../features/platform/OnboardPGOwnerModal';
-import { Payment } from '../../types';
+import { TenantDashboard } from '../../features/tenant/TenantDashboard';
+import { TenantProfilePage } from '../../features/tenant/TenantProfilePage';
+import { TenantPaymentsPage } from '../../features/tenant/TenantPaymentsPage';
+import { TenantServiceRequestsPage } from '../../features/tenant/TenantServiceRequestsPage';
+import { TenantPayRentModal } from '../../features/tenant/TenantPayRentModal';
+import { Payment, Resident } from '../../types';
 import { api } from '../../services/api';
 import { useProperty } from '../../context/PropertyContext';
 import { useAuth } from '../../context/AuthContext';
@@ -32,9 +37,13 @@ import { CreateAdminModal } from '../../features/staff/CreateAdminModal';
 import { formatINR } from '../../utils/formatters';
 
 export const AppLayout: React.FC = () => {
-  const { isPlatformOwner, isPGOwner } = useAuth();
+  const { isPlatformOwner, isPGOwner, isTenant, currentResidentId } = useAuth();
   const [currentRoute, setCurrentRoute] = useState<NavRoute>(() =>
-    isPlatformOwner ? 'platform_overview' : 'overview'
+    isPlatformOwner
+      ? 'platform_overview'
+      : isTenant
+      ? 'tenant_dashboard'
+      : 'overview'
   );
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -42,6 +51,7 @@ export const AppLayout: React.FC = () => {
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(3);
   const [activeReceipt, setActiveReceipt] = useState<Payment | null>(null);
   const [highlightedResidentId, setHighlightedResidentId] = useState<string | undefined>(undefined);
+  const [tenantResident, setTenantResident] = useState<Resident | null>(null);
 
   // Quick action modal triggers
   const [isQuickAddResidentOpen, setIsQuickAddResidentOpen] = useState(false);
@@ -52,18 +62,36 @@ export const AppLayout: React.FC = () => {
   const [isOwnerAccountOpen, setIsOwnerAccountOpen] = useState(false);
   const [isCreateAdminOpen, setIsCreateAdminOpen] = useState(false);
   const [isOnboardPGOwnerOpen, setIsOnboardPGOwnerOpen] = useState(false);
+  const [isTenantPayRentOpen, setIsTenantPayRentOpen] = useState(false);
 
   const { refreshProperties } = useProperty();
   const toast = useToast();
 
+  // Load tenant resident object if in tenant mode
+  useEffect(() => {
+    if (isTenant && currentResidentId) {
+      api.getResidentById(currentResidentId).then((res) => {
+        if (res) setTenantResident(res);
+      });
+    }
+  }, [isTenant, currentResidentId]);
+
   // Keep route synced if role changes
   useEffect(() => {
-    if (isPlatformOwner && !['platform_overview', 'platform_owners', 'platform_subscriptions', 'notifications', 'settings'].includes(currentRoute)) {
-      setCurrentRoute('platform_overview');
-    } else if (!isPlatformOwner && ['platform_overview', 'platform_owners', 'platform_subscriptions'].includes(currentRoute)) {
-      setCurrentRoute('overview');
+    if (isPlatformOwner) {
+      if (!['platform_overview', 'platform_owners', 'platform_subscriptions', 'notifications', 'settings'].includes(currentRoute)) {
+        setCurrentRoute('platform_overview');
+      }
+    } else if (isTenant) {
+      if (!['tenant_dashboard', 'tenant_profile', 'tenant_payments', 'tenant_requests', 'notifications'].includes(currentRoute)) {
+        setCurrentRoute('tenant_dashboard');
+      }
+    } else {
+      if (['platform_overview', 'platform_owners', 'platform_subscriptions', 'tenant_dashboard', 'tenant_profile', 'tenant_payments', 'tenant_requests'].includes(currentRoute)) {
+        setCurrentRoute('overview');
+      }
     }
-  }, [isPlatformOwner]);
+  }, [isPlatformOwner, isTenant]);
 
   const fetchUnreadNotifs = async () => {
     const list = await api.getNotifications();
@@ -86,7 +114,13 @@ export const AppLayout: React.FC = () => {
   ) => {
     if (action === 'onboard_pg_owner') setIsOnboardPGOwnerOpen(true);
     if (action === 'add_resident') setIsQuickAddResidentOpen(true);
-    if (action === 'record_payment') setIsQuickRecordPaymentOpen(true);
+    if (action === 'record_payment') {
+      if (isTenant) {
+        setIsTenantPayRentOpen(true);
+      } else {
+        setIsQuickRecordPaymentOpen(true);
+      }
+    }
     if (action === 'add_expense') setIsQuickAddExpenseOpen(true);
     if (action === 'add_room') setIsQuickAddRoomOpen(true);
     if (action === 'add_property') setIsQuickAddPropertyOpen(true);
@@ -119,7 +153,7 @@ export const AppLayout: React.FC = () => {
         {/* Scrollable Page Body */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="max-w-7xl mx-auto">
-            {/* Platform Owner Routes (Limited Rights: Onboard PG Owners & SaaS Subscriptions) */}
+            {/* Platform Owner Routes */}
             {currentRoute === 'platform_overview' && (
               <PlatformOverview
                 onNavigateToPGOwners={() => setCurrentRoute('platform_owners')}
@@ -131,7 +165,29 @@ export const AppLayout: React.FC = () => {
             )}
             {currentRoute === 'platform_subscriptions' && <SubscriptionsPage />}
 
-            {/* PG Operations Routes (Full PG Rights: Rooms, Beds, Tenants, Staff, Payments, Expenses) */}
+            {/* Tenant Portal Routes */}
+            {currentRoute === 'tenant_dashboard' && (
+              <TenantDashboard
+                residentId={currentResidentId}
+                onNavigateToProfile={() => setCurrentRoute('tenant_profile')}
+                onNavigateToPayments={() => setCurrentRoute('tenant_payments')}
+                onNavigateToRequests={() => setCurrentRoute('tenant_requests')}
+              />
+            )}
+            {currentRoute === 'tenant_profile' && (
+              <TenantProfilePage residentId={currentResidentId} />
+            )}
+            {currentRoute === 'tenant_payments' && (
+              <TenantPaymentsPage
+                residentId={currentResidentId}
+                onOpenReceipt={(payment) => setActiveReceipt(payment)}
+              />
+            )}
+            {currentRoute === 'tenant_requests' && (
+              <TenantServiceRequestsPage residentId={currentResidentId} />
+            )}
+
+            {/* PG Operations Routes (PG Owner / Manager) */}
             {currentRoute === 'overview' && (
               <DashboardOverview
                 onNavigate={handleNavigate}
@@ -164,7 +220,9 @@ export const AppLayout: React.FC = () => {
               <div className="bg-white p-6 rounded-xl border border-[#E8E1D9] shadow-sm">
                 <h2 className="text-lg font-bold text-[#24211F] mb-4">All System Notifications</h2>
                 <p className="text-xs text-[#716A63]">
-                  {isPlatformOwner
+                  {isTenant
+                    ? 'Rent payment receipts, gate curfew notices, and maintenance resolution updates.'
+                    : isPlatformOwner
                     ? 'Platform-level tenant registrations, new PG onboardings, and billing alerts.'
                     : 'Use the notification center bell in the header to filter unread alerts and trigger WhatsApp reminders.'}
                 </p>
@@ -209,6 +267,18 @@ export const AppLayout: React.FC = () => {
           );
         }}
       />
+
+      {/* Tenant: Pay Rent Online Modal (Triggered by Header Quick Action in Tenant View) */}
+      {tenantResident && (
+        <TenantPayRentModal
+          isOpen={isTenantPayRentOpen}
+          onClose={() => setIsTenantPayRentOpen(false)}
+          resident={tenantResident}
+          onPaymentSuccess={(pay) => {
+            setActiveReceipt(pay);
+          }}
+        />
+      )}
 
       {/* PG Owner Quick Operations */}
       <AddResidentModal

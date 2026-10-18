@@ -10,6 +10,8 @@ interface AuthContextType {
   isPGOwner: boolean;
   isOwner: boolean;
   isManager: boolean;
+  isTenant: boolean;
+  currentResidentId?: string;
   canManageStaff: boolean;
   canManageTenants: boolean;
   canOnboardPGOwner: boolean;
@@ -80,6 +82,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isPlatformOwner = currentUser?.role === 'platform_owner';
   const isPGOwner = currentUser?.role === 'pg_owner' || currentUser?.role === 'owner';
   const isManager = currentUser?.role === 'manager';
+  const isTenant = currentUser?.role === 'tenant';
+  const currentResidentId = currentUser?.residentId || (isTenant ? 'res_2' : undefined);
   
   // Platform Owner has limited right: ONLY boards PG Owners
   const canOnboardPGOwner = isPlatformOwner;
@@ -103,6 +107,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isPGOwner,
         isOwner,
         isManager,
+        isTenant,
+        currentResidentId,
         canManageStaff,
         canManageTenants,
         canOnboardPGOwner,
