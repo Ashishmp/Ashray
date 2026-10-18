@@ -371,15 +371,24 @@ class StorageService {
     const key = this.getScopedKey('payments', ownerId);
     const existing = localStorage.getItem(key);
     if (existing !== null) {
-      return this.get<PaymentRecord[]>(key, []);
+      const stored = this.get<PaymentRecord[]>(key, []);
+      if (ownerId === INITIAL_OWNER_PROFILE.id && stored.length <= 7) {
+        const existingIds = new Set(stored.map(p => p.id));
+        const merged = [...stored, ...INITIAL_PAYMENTS.filter(p => !existingIds.has(p.id))];
+        this.savePayments(ownerId, merged);
+        return merged;
+      }
+      return stored;
     }
 
     if (ownerId === INITIAL_OWNER_PROFILE.id) {
       const legacy = localStorage.getItem(STORAGE_KEYS.LEGACY_PAYMENTS);
       if (legacy !== null) {
         const parsed = JSON.parse(legacy) as PaymentRecord[];
-        this.savePayments(ownerId, parsed);
-        return parsed;
+        const existingIds = new Set(parsed.map(p => p.id));
+        const merged = [...parsed, ...INITIAL_PAYMENTS.filter(p => !existingIds.has(p.id))];
+        this.savePayments(ownerId, merged);
+        return merged;
       }
       this.savePayments(ownerId, INITIAL_PAYMENTS);
       return INITIAL_PAYMENTS;
@@ -407,15 +416,24 @@ class StorageService {
     const key = this.getScopedKey('expenses', ownerId);
     const existing = localStorage.getItem(key);
     if (existing !== null) {
-      return this.get<Expense[]>(key, []);
+      const stored = this.get<Expense[]>(key, []);
+      if (ownerId === INITIAL_OWNER_PROFILE.id && stored.length <= 7) {
+        const existingIds = new Set(stored.map(e => e.id));
+        const merged = [...stored, ...INITIAL_EXPENSES.filter(e => !existingIds.has(e.id))];
+        this.saveExpenses(ownerId, merged);
+        return merged;
+      }
+      return stored;
     }
 
     if (ownerId === INITIAL_OWNER_PROFILE.id) {
       const legacy = localStorage.getItem(STORAGE_KEYS.LEGACY_EXPENSES);
       if (legacy !== null) {
         const parsed = JSON.parse(legacy) as Expense[];
-        this.saveExpenses(ownerId, parsed);
-        return parsed;
+        const existingIds = new Set(parsed.map(e => e.id));
+        const merged = [...parsed, ...INITIAL_EXPENSES.filter(e => !existingIds.has(e.id))];
+        this.saveExpenses(ownerId, merged);
+        return merged;
       }
       this.saveExpenses(ownerId, INITIAL_EXPENSES);
       return INITIAL_EXPENSES;

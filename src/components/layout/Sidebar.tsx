@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
 
   const superAdminNavItems: SidebarNavItem[] = [
     { to: '/admin', label: 'Platform Overview', icon: LayoutDashboard },
-    { to: '/admin', label: 'Onboarded PGs', icon: Building2 },
+    { to: '/admin/onboarded', label: 'Onboarded PGs', icon: Building2 },
     { to: '/reports', label: 'System Analytics', icon: BarChart3 }
   ];
 

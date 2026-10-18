@@ -15,6 +15,7 @@ import {
   Server,
   Activity
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { storageService } from '../../services/storageService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -27,6 +28,8 @@ import { formatCurrency } from '../../utils/formatters';
 import { OnboardOwnerModal } from './OnboardOwnerModal';
 
 export const PlatformAdminPage: React.FC = () => {
+  const location = useLocation();
+  const isOnboardedView = location.pathname.includes('/onboarded');
   const { switchRole } = useAuth();
   const { showToast } = useToast();
 
@@ -90,8 +93,12 @@ export const PlatformAdminPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Header */}
       <PageHeader
-        title="Platform Super Admin"
-        subtitle="Consolidated governance, tenant analytics, and PG business onboarding across India."
+        title={isOnboardedView ? 'Onboarded PG Franchises & Businesses' : 'Platform Super Admin Overview'}
+        subtitle={
+          isOnboardedView
+            ? 'Directory of registered PG companies, legal compliance, property counts, and franchise credentials.'
+            : 'Consolidated governance, tenant analytics, and PG business onboarding across India.'
+        }
         actions={
           <Button
             variant="primary"

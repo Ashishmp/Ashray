@@ -36,6 +36,7 @@ const PAGE_TITLES: Record<string, { title: string; category: string }> = {
   '/reports': { title: 'Reports & Analytics', category: 'Insights' },
   '/settings': { title: 'Settings & Defaults', category: 'Configuration' },
   '/admin': { title: 'Platform Super Admin', category: 'Platform Governance' },
+  '/admin/onboarded': { title: 'Onboarded PG Businesses', category: 'Platform Governance' },
   '/tenant': { title: 'Resident Overview', category: 'My Stay' },
   '/tenant/profile': { title: 'My Profile & KYC Verification', category: 'Resident Account' },
   '/tenant/payments': { title: 'Rent & Official Receipts', category: 'Financials' },

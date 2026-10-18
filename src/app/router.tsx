@@ -13,7 +13,8 @@ import { MaintenancePage } from '../features/maintenance/MaintenancePage';
 import { StaffPage } from '../features/staff/StaffPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
-import { PlatformAdminPage } from '../features/admin/PlatformAdminPage';
+import { PlatformOverviewPage } from '../features/admin/PlatformOverviewPage';
+import { OnboardedPgsPage } from '../features/admin/OnboardedPgsPage';
 import { TenantOverviewPage } from '../features/tenant/TenantOverviewPage';
 import { TenantProfilePage } from '../features/tenant/TenantProfilePage';
 import { TenantPaymentsPage } from '../features/tenant/TenantPaymentsPage';
@@ -23,7 +24,7 @@ import { useAuth } from '../context/AuthContext';
 const RoleBasedIndex: React.FC = () => {
   const { currentRole } = useAuth();
   if (currentRole === 'superadmin') {
-    return <PlatformAdminPage />;
+    return <PlatformOverviewPage />;
   }
   if (currentRole === 'tenant') {
     return <TenantOverviewPage />;
@@ -57,7 +58,8 @@ export const AppRouter: React.FC = () => {
         <Route path="settings" element={<SettingsPage />} />
 
         {/* Platform Super Admin */}
-        <Route path="admin" element={<PlatformAdminPage />} />
+        <Route path="admin" element={<PlatformOverviewPage />} />
+        <Route path="admin/onboarded" element={<OnboardedPgsPage />} />
 
         {/* Resident Tenant Self-Service Portal */}
         <Route path="tenant" element={<TenantOverviewPage />} />
